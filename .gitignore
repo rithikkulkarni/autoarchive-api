@@ -14,8 +14,8 @@ venv/
 # Alembic bytecode
 alembic/**/__pycache__/
 alembic/__pycache__/
-app/__pycache__
-app/**/__pycache__
+app/__pycache__/
+app/**/__pycache__/
 
 # OS files
 .DS_Store
