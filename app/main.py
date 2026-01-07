@@ -15,6 +15,7 @@ app.add_middleware(
         "http://localhost:4321",   # Astro dev
         "http://127.0.0.1:4321",
         "http://localhost:3000",   # just in case
+        "https://autoarchive-frontend.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
