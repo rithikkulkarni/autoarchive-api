@@ -11,20 +11,18 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from datetime import date, timedelta
-from sqlalchemy import select
 from app.db.models import ModelWeeklyStat
 from app.schemas.stats import ModelWeeklyStatOut
 
 from app.services.aggregation import recompute_weekly_stats
 
-from sqlalchemy import select, desc
 from app.db.models import VehicleModel, ListingSnapshot, ModelWeeklyStat
 from app.schemas.cards import ModelCardOut, LatestSnapshotOut, LatestWeeklyStatOut
 
-from sqlalchemy import select
-from datetime import date, timedelta
-from app.db.models import ModelWeeklyStat
 from app.schemas.price_history import PriceHistoryPoint
+
+from app.schemas.mileage import MileageHistogramOut
+
 
 
 router = APIRouter(prefix="/models", tags=["models"])
@@ -177,3 +175,60 @@ def get_price_history(
 
     rows = db.execute(stmt).scalars().all()
     return rows
+
+@router.get("/{model_id}/mileage-histogram", response_model=MileageHistogramOut)
+def get_mileage_histogram(
+    model_id: UUID,
+    days: int = 56,
+    bins: int = 12,
+    db: Session = Depends(get_db),
+):
+    since = date.today() - timedelta(days=days)
+
+    stmt = (
+        select(ListingSnapshot.mileage)
+        .where(ListingSnapshot.vehicle_model_id == model_id)
+        .where(ListingSnapshot.snapshot_date >= since)
+        .where(ListingSnapshot.mileage.is_not(None))
+    )
+
+    miles = [row[0] for row in db.execute(stmt).all()]
+    if not miles:
+        return {
+            "bin_edges": [],
+            "counts": [],
+            "sample_size": 0,
+            "min_mileage": None,
+            "max_mileage": None,
+        }
+
+    mn = min(miles)
+    mx = max(miles)
+
+    # Avoid zero-width bins
+    if mn == mx:
+        mn = max(0, mn - 1)
+        mx = mx + 1
+
+    # Build bin edges
+    width = (mx - mn) / bins
+    edges = [int(round(mn + i * width)) for i in range(bins + 1)]
+    edges[-1] = mx  # ensure final edge is max
+
+    counts = [0] * bins
+    for v in miles:
+        # Put v into bin index
+        idx = int((v - mn) / width) if width > 0 else 0
+        if idx >= bins:
+            idx = bins - 1
+        if idx < 0:
+            idx = 0
+        counts[idx] += 1
+
+    return {
+        "bin_edges": edges,
+        "counts": counts,
+        "sample_size": len(miles),
+        "min_mileage": min(miles),
+        "max_mileage": max(miles),
+    }
