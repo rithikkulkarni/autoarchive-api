@@ -1,11 +1,16 @@
-from logging.config import fileConfig
+import os
+import sys
+from pathlib import Path
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 from app.core.config import settings
 from app.db.base import Base
-from app.db import models  # noqa: F401  <-- REQUIRED so Alembic sees tables
+from app.db import models  # noqa: F401
 
 config = context.config
 
