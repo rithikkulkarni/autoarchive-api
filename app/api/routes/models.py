@@ -21,6 +21,11 @@ from sqlalchemy import select, desc
 from app.db.models import VehicleModel, ListingSnapshot, ModelWeeklyStat
 from app.schemas.cards import ModelCardOut, LatestSnapshotOut, LatestWeeklyStatOut
 
+from sqlalchemy import select
+from datetime import date, timedelta
+from app.db.models import ModelWeeklyStat
+from app.schemas.price_history import PriceHistoryPoint
+
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -152,3 +157,23 @@ def get_model_card(model_id: UUID, db: Session = Depends(get_db)):
             "listing_count": latest_market.listing_count,
         },
     }
+
+@router.get("/{model_id}/price-history", response_model=list[PriceHistoryPoint])
+def get_price_history(
+    model_id: UUID,
+    weeks: int = 26,
+    db: Session = Depends(get_db),
+):
+    since = date.today() - timedelta(weeks=weeks)
+
+    stmt = (
+        select(ModelWeeklyStat)
+        .where(
+            ModelWeeklyStat.vehicle_model_id == model_id,
+            ModelWeeklyStat.week_start >= since,
+        )
+        .order_by(ModelWeeklyStat.week_start.asc())
+    )
+
+    rows = db.execute(stmt).scalars().all()
+    return rows
